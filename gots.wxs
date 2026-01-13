@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" 
+           Name="GoTS Runtime" 
+           Language="1033" 
+           Version="0.1.0.0" 
+           Manufacturer="GoTS Team" 
+           UpgradeCode="12345678-1234-1234-1234-123456789012">
+    
+    <Package InstallerVersion="200" 
+             Compressed="yes" 
+             InstallScope="perMachine"
+             Description="Go-based TypeScript Runtime"
+             Comments="High-performance multithreaded TypeScript runtime" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- Installation Directory -->
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLFOLDER" Name="GoTSRuntime">
+          <!-- Main executable -->
+          <Component Id="GoTSExecutable" Guid="*">
+            <File Id="gots.exe" 
+                  Source="build\windows\gots.exe" 
+                  KeyPath="yes">
+              <Shortcut Id="StartMenuShortcut"
+                        Directory="ProgramMenuDir"
+                        Name="GoTS Runtime"
+                        WorkingDirectory="INSTALLFOLDER"
+                        Icon="gots.ico"
+                        IconIndex="0"
+                        Advertise="yes" />
+            </File>
+            
+            <!-- Add to PATH environment variable -->
+            <Environment Id="PATH" 
+                         Name="PATH" 
+                         Value="[INSTALLFOLDER]" 
+                         Permanent="no" 
+                         Part="last" 
+                         Action="set" 
+                         System="yes" />
+            
+            <!-- Set GOTS_STDLIB_PATH -->
+            <Environment Id="GOTS_STDLIB_PATH"
+                         Name="GOTS_STDLIB_PATH"
+                         Value="[INSTALLFOLDER]stdlib"
+                         Permanent="no"
+                         Action="set"
+                         System="yes" />
+          </Component>
+
+          <!-- Standard Library Directory -->
+          <Directory Id="StdlibFolder" Name="stdlib">
+            <Component Id="StdlibComponent" Guid="*">
+              <File Id="StdlibReadme" Source="stdlib\README.md" KeyPath="yes" />
+              <!-- Add all stdlib files here -->
+            </Component>
+          </Directory>
+
+          <!-- Documentation -->
+          <Component Id="Documentation" Guid="*">
+            <File Id="README" Source="README.md" KeyPath="yes" />
+            <File Id="LICENSE" Source="LICENSE" />
+          </Component>
+        </Directory>
+      </Directory>
+
+      <!-- Start Menu -->
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ProgramMenuDir" Name="GoTS Runtime">
+          <Component Id="ProgramMenuDir" Guid="*">
+            <RemoveFolder Id="ProgramMenuDir" On="uninstall" />
+            <RegistryValue Root="HKCU" 
+                          Key="Software\GoTSRuntime" 
+                          Name="installed" 
+                          Type="integer" 
+                          Value="1" 
+                          KeyPath="yes" />
+          </Component>
+        </Directory>
+      </Directory>
+    </Directory>
+
+    <!-- Features -->
+    <Feature Id="ProductFeature" 
+             Title="GoTS Runtime Core" 
+             Level="1"
+             Description="Core runtime and standard library">
+      <ComponentRef Id="GoTSExecutable" />
+      <ComponentRef Id="StdlibComponent" />
+      <ComponentRef Id="Documentation" />
+      <ComponentRef Id="ProgramMenuDir" />
+    </Feature>
+
+    <!-- UI -->
+    <UIRef Id="WixUI_InstallDir" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    
+    <!-- License Agreement -->
+    <WixVariable Id="WixUILicenseRtf" Value="license.rtf" />
+    
+    <!-- Custom branding -->
+    <WixVariable Id="WixUIBannerBmp" Value="assets\banner.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="assets\dialog.bmp" />
+    
+    <!-- Icon -->
+    <Icon Id="gots.ico" SourceFile="assets\gots.ico" />
+    <Property Id="ARPPRODUCTICON" Value="gots.ico" />
+    
+    <!-- Add/Remove Programs information -->
+    <Property Id="ARPHELPLINK" Value="https://github.com/yourusername/gots-runtime" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/yourusername/gots-runtime" />
+  </Product>
+</Wix>
