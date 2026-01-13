@@ -3,13 +3,13 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/signal"
 	"path/filepath"
-	"syscall"
 
 	"gots-runtime/internal/config"
 	"gots-runtime/pkg/debugger"
 	"gots-runtime/pkg/testrunner"
+
+	"gots-runtime/internal/runtime"
 
 	"github.com/spf13/cobra"
 )
@@ -20,9 +20,9 @@ var (
 
 func main() {
 	var rootCmd = &cobra.Command{
-		Use:   "gots",
-		Short: "Go-based Multithreaded Runtime with Inbuilt TypeScript",
-		Long:  "A next-generation runtime environment that combines Golang's multithreading capabilities with TypeScript as a first-class citizen.",
+		Use:     "gots",
+		Short:   "Go-based Multithreaded Runtime with Inbuilt TypeScript",
+		Long:    "A next-generation runtime environment that combines Golang's multithreading capabilities with TypeScript as a first-class citizen.",
 		Version: version,
 	}
 
@@ -104,38 +104,72 @@ func main() {
 		os.Exit(1)
 	}
 }
+func findStdlibPath() string {
+	// Check environment variable
+	if envPath := os.Getenv("GOTS_STDLIB_PATH"); envPath != "" {
+		if _, err := os.Stat(envPath); err == nil {
+			return envPath
+		}
+	}
+
+	// Get executable directory
+	exe, err := os.Executable()
+	if err == nil {
+		exeDir := filepath.Dir(exe)
+		stdlibPath := filepath.Join(exeDir, "stdlib")
+		if _, err := os.Stat(stdlibPath); err == nil {
+			return stdlibPath
+		}
+	}
+
+	// Check current directory
+	if _, err := os.Stat("stdlib"); err == nil {
+		return "stdlib"
+	}
+
+	// Check parent directories (dev fallback)
+	if _, err := os.Stat("../../stdlib"); err == nil {
+		return "../../stdlib"
+	}
+
+	return ""
+}
 
 func runFile(cmd *cobra.Command, args []string) error {
-	filePath := args[0]
+	filename := args[0]
 
-	// Get absolute path
-	absPath, err := filepath.Abs(filePath)
+	// Check if file exists
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		fmt.Printf("Error: File not found: %s\n", filename)
+		os.Exit(1)
+	}
+
+	// Find stdlib path
+	stdlibPath := findStdlibPath()
+	if stdlibPath == "" {
+		fmt.Println("Warning: stdlib directory not found")
+		fmt.Println("Set GOTS_STDLIB_PATH or place stdlib next to executable")
+	}
+
+	// Create runtime
+	rt, err := runtime.New(stdlibPath)
 	if err != nil {
-		return fmt.Errorf("failed to get absolute path: %w", err)
+		fmt.Printf("Error: Failed to create runtime: %v\n", err)
+		os.Exit(1)
 	}
 
-	// Get project root (directory containing the file)
-	projectRoot := filepath.Dir(absPath)
-
-	// Create runtime manager
-	rm, err := NewRuntimeManager(projectRoot)
+	// Execute the file
+	fmt.Printf("Running: %s\n", filename)
+	result, err := rt.ExecuteFile(filename)
 	if err != nil {
-		return fmt.Errorf("failed to create runtime manager: %w", err)
-	}
-	defer rm.Shutdown()
-
-	// Get module ID from config or use default
-	moduleID := "main"
-	if rm.GetConfig().Main != "" {
-		moduleID = rm.GetConfig().Main
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
 	}
 
-	// Execute the module
-	if err := rm.ExecuteModule(moduleID, absPath); err != nil {
-		return fmt.Errorf("failed to execute module: %w", err)
+	// Print result if not undefined
+	if result != nil && !result.Equals(rt.GetVM().ToValue(nil)) {
+		fmt.Println(result)
 	}
-
-	fmt.Printf("Module executed successfully: %s\n", absPath)
 	return nil
 }
 
@@ -166,7 +200,7 @@ export function main(): void {
 	cfg := config.GetDefaultConfig()
 	cfg.Name = projectName
 	cfg.Main = "main.ts"
-	
+
 	configPath := filepath.Join(projectName, "gots.json")
 	if err := config.SaveConfig(cfg, configPath); err != nil {
 		return fmt.Errorf("failed to create config file: %w", err)
@@ -199,7 +233,7 @@ gots test
 
 func buildFile(cmd *cobra.Command, args []string) error {
 	filePath := args[0]
-	
+
 	// For Phase 5, we'll just validate the file
 	// In a full implementation, this would compile TS to JS
 	absPath, err := filepath.Abs(filePath)
@@ -237,7 +271,7 @@ func runTests(cmd *cobra.Command, args []string) error {
 
 	// Create test runner
 	runner := testrunner.NewRunner(projectRoot)
-	
+
 	// Discover and run tests
 	results, err := runner.RunTests(pattern)
 	if err != nil {
@@ -262,17 +296,17 @@ func runTests(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("\nTests: %d passed, %d failed\n", passed, failed)
-	
+
 	if failed > 0 {
 		return fmt.Errorf("some tests failed")
 	}
-	
+
 	return nil
 }
 
 func debugFile(cmd *cobra.Command, args []string) error {
 	filePath := args[0]
-	
+
 	absPath, err := filepath.Abs(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to get absolute path: %w", err)
@@ -312,36 +346,28 @@ func debugFile(cmd *cobra.Command, args []string) error {
 }
 
 func serveFile(cmd *cobra.Command, args []string) error {
-	filePath := args[0]
+	filename := args[0]
 
-	absPath, err := filepath.Abs(filePath)
+	fmt.Printf("Starting server with: %s\n", filename)
+	fmt.Println("⚠ HTTP server integration coming in Phase 4")
+	fmt.Println("For now, the file will be executed once:")
+
+	// Find stdlib path
+	stdlibPath := findStdlibPath()
+
+	// Create runtime
+	rt, err := runtime.New(stdlibPath)
 	if err != nil {
-		return fmt.Errorf("failed to get absolute path: %w", err)
+		fmt.Printf("Error: Failed to create runtime: %v\n", err)
+		os.Exit(1)
 	}
 
-	projectRoot := filepath.Dir(absPath)
-
-	// Create runtime manager
-	rm, err := NewRuntimeManager(projectRoot)
+	// Execute the file
+	_, err = rt.ExecuteFile(filename)
 	if err != nil {
-		return fmt.Errorf("failed to create runtime manager: %w", err)
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
 	}
-	defer rm.Shutdown()
-
-	// Execute module
-	moduleID := "main"
-	if err := rm.ExecuteModule(moduleID, absPath); err != nil {
-		return fmt.Errorf("failed to execute module: %w", err)
-	}
-
-	fmt.Printf("Server started. Press Ctrl+C to stop.\n")
-	
-	// Wait for interrupt
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	<-sigChan
-
-	fmt.Println("\nShutting down...")
 	return nil
 }
 
@@ -364,13 +390,13 @@ func profileFile(cmd *cobra.Command, args []string) error {
 
 	// Get profiler from integration
 	profiler := rm.GetIntegration().GetTSEngine()
-	
+
 	fmt.Printf("Profiling %s...\n", absPath)
-	
+
 	// Start CPU profiling
 	// Note: In a full implementation, this would use the profiler from observability
 	_ = profiler
-	
+
 	// Execute module
 	moduleID := "main"
 	if err := rm.ExecuteModule(moduleID, absPath); err != nil {
@@ -380,4 +406,3 @@ func profileFile(cmd *cobra.Command, args []string) error {
 	fmt.Println("Profiling complete. Check metrics endpoint for results.")
 	return nil
 }
-

@@ -1,4 +1,4 @@
-# my-gots-project
+# my-gots-one
 
 A GoTS Runtime project.
 
