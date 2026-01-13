@@ -1,0 +1,18 @@
+{
+  "name": "my-gots-project",
+  "version": "0.1.0",
+  "main": "main.ts",
+  "observability": {
+    "enabled": true,
+    "healthPort": 8080,
+    "metricsPort": 9090,
+    "logLevel": "info",
+    "enableTracing": true
+  },
+  "runtime": {
+    "sandboxMode": "none",
+    "maxWorkers": 10,
+    "eventQueueSize": 1000,
+    "typeEnforcement": true
+  }
+}
