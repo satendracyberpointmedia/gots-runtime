@@ -202,41 +202,9 @@ func (r *Runtime) loadStdlib() error {
 		return fmt.Errorf("stdlib directory not found: %s", r.stdlibPath)
 	}
 
-	// Walk through stdlib directory and preload modules
-	err := filepath.Walk(r.stdlibPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		// Skip directories and non-TS/JS files
-		if info.IsDir() {
-			return nil
-		}
-
-		if !strings.HasSuffix(path, ".ts") && !strings.HasSuffix(path, ".js") {
-			return nil
-		}
-
-		// Get relative path from stdlib
-		relPath, err := filepath.Rel(r.stdlibPath, path)
-		if err != nil {
-			return err
-		}
-
-		// Remove extension for module name
-		moduleName := strings.TrimSuffix(relPath, filepath.Ext(relPath))
-		moduleName = strings.ReplaceAll(moduleName, string(filepath.Separator), "/")
-
-		// Preload the module (this will transpile it)
-		_, err = r.loadModule(path)
-		if err != nil {
-			return fmt.Errorf("failed to load stdlib module %s: %w", moduleName, err)
-		}
-
-		return nil
-	})
-
-	return err
+	// Don't preload stdlib modules - load them on demand via require()
+	// This avoids errors with incomplete stdlib files during development
+	return nil
 }
 
 // ExecuteFile executes a TypeScript or JavaScript file

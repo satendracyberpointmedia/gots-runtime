@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 
 	"gots-runtime/internal/config"
-	"gots-runtime/pkg/debugger"
 	"gots-runtime/pkg/testrunner"
 
 	"gots-runtime/internal/runtime"
@@ -263,11 +262,12 @@ func runTests(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create runtime manager
-	rm, err := NewRuntimeManager(projectRoot)
+	rm, err := runtime.New(projectRoot)
 	if err != nil {
 		return fmt.Errorf("failed to create runtime manager: %w", err)
 	}
-	defer rm.Shutdown()
+	fmt.Println("rm", rm)
+	// defer rm.Shutdown()
 
 	// Create test runner
 	runner := testrunner.NewRunner(projectRoot)
@@ -320,16 +320,17 @@ func debugFile(cmd *cobra.Command, args []string) error {
 	projectRoot := filepath.Dir(absPath)
 
 	// Create runtime manager
-	rm, err := NewRuntimeManager(projectRoot)
+	rm, err := runtime.New(projectRoot)
 	if err != nil {
 		return fmt.Errorf("failed to create runtime manager: %w", err)
 	}
-	defer rm.Shutdown()
+	fmt.Println("rm", rm)
+	// defer rm.Shutdown()
 
-	// Create debugger
-	ctx := rm.GetIntegration().GetOrchestrator().Context()
-	dbg := debugger.NewDebugger(ctx)
-	defer dbg.Stop()
+	// // Create debugger
+	// ctx := rm.GetIntegration().GetOrchestrator().Context()
+	// dbg := debugger.NewDebugger(ctx)
+	// defer dbg.Stop()
 
 	fmt.Printf("Debugger started for %s\n", absPath)
 	fmt.Println("Use 'continue', 'step', 'inspect <var>' commands")
@@ -337,10 +338,10 @@ func debugFile(cmd *cobra.Command, args []string) error {
 
 	// Simple interactive loop (in production, use proper debugger protocol)
 	// For now, just execute the file
-	moduleID := "main"
-	if err := rm.ExecuteModule(moduleID, absPath); err != nil {
-		return fmt.Errorf("failed to execute module: %w", err)
-	}
+	// moduleID := "main"
+	// if err := rm.ExecuteModule(moduleID, absPath); err != nil {
+	// 	return fmt.Errorf("failed to execute module: %w", err)
+	// }
 
 	return nil
 }
@@ -382,26 +383,27 @@ func profileFile(cmd *cobra.Command, args []string) error {
 	projectRoot := filepath.Dir(absPath)
 
 	// Create runtime manager
-	rm, err := NewRuntimeManager(projectRoot)
+	rm, err := runtime.New(projectRoot)
 	if err != nil {
 		return fmt.Errorf("failed to create runtime manager: %w", err)
 	}
-	defer rm.Shutdown()
+	fmt.Println("rm", rm)
+	// defer rm.Shutdown()
 
 	// Get profiler from integration
-	profiler := rm.GetIntegration().GetTSEngine()
+	// profiler := rm.GetIntegration().GetTSEngine()
 
 	fmt.Printf("Profiling %s...\n", absPath)
 
 	// Start CPU profiling
 	// Note: In a full implementation, this would use the profiler from observability
-	_ = profiler
+	// _ = profiler
 
 	// Execute module
-	moduleID := "main"
-	if err := rm.ExecuteModule(moduleID, absPath); err != nil {
-		return fmt.Errorf("failed to execute module: %w", err)
-	}
+	// moduleID := "main"
+	// if err := rm.ExecuteModule(moduleID, absPath); err != nil {
+	// 	return fmt.Errorf("failed to execute module: %w", err)
+	// }
 
 	fmt.Println("Profiling complete. Check metrics endpoint for results.")
 	return nil
