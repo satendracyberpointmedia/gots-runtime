@@ -11,11 +11,11 @@ import (
 
 // RuntimeNode represents a node in the federation
 type RuntimeNode struct {
-	ID      string
-	Address string
-	Healthy bool
+	ID       string
+	Address  string
+	Healthy  bool
 	LastSeen time.Time
-	mu      sync.RWMutex
+	mu       sync.RWMutex
 }
 
 // NewRuntimeNode creates a new runtime node
@@ -47,13 +47,13 @@ type FederationMessage struct {
 
 // Federation provides multi-runtime federation
 type Federation struct {
-	localID   string
-	nodes     map[string]*RuntimeNode
-	listener  net.Listener
-	handlers  map[string]MessageHandler
-	mu        sync.RWMutex
-	ctx       context.Context
-	cancel    context.CancelFunc
+	localID  string
+	nodes    map[string]*RuntimeNode
+	listener net.Listener
+	handlers map[string]MessageHandler
+	mu       sync.RWMutex
+	ctx      context.Context
+	cancel   context.CancelFunc
 }
 
 // MessageHandler handles federation messages
@@ -97,16 +97,16 @@ func (f *Federation) Send(nodeID string, msgType string, payload interface{}) er
 	f.mu.RLock()
 	node, ok := f.nodes[nodeID]
 	f.mu.RUnlock()
-	
+
 	if !ok {
 		return fmt.Errorf("node not found: %s", nodeID)
 	}
-	
+
 	payloadJSON, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("failed to marshal payload: %w", err)
 	}
-	
+
 	msg := &FederationMessage{
 		Type:      msgType,
 		From:      f.localID,
@@ -114,7 +114,7 @@ func (f *Federation) Send(nodeID string, msgType string, payload interface{}) er
 		Payload:   payloadJSON,
 		Timestamp: time.Now(),
 	}
-	
+
 	return f.sendMessage(node.Address, msg)
 }
 
@@ -128,12 +128,12 @@ func (f *Federation) Broadcast(msgType string, payload interface{}) error {
 		}
 	}
 	f.mu.RUnlock()
-	
+
 	payloadJSON, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("failed to marshal payload: %w", err)
 	}
-	
+
 	for _, node := range nodes {
 		msg := &FederationMessage{
 			Type:      msgType,
@@ -142,10 +142,10 @@ func (f *Federation) Broadcast(msgType string, payload interface{}) error {
 			Payload:   payloadJSON,
 			Timestamp: time.Now(),
 		}
-		
+
 		_ = f.sendMessage(node.Address, msg)
 	}
-	
+
 	return nil
 }
 
@@ -156,7 +156,7 @@ func (f *Federation) sendMessage(address string, msg *FederationMessage) error {
 		return fmt.Errorf("failed to connect: %w", err)
 	}
 	defer conn.Close()
-	
+
 	encoder := json.NewEncoder(conn)
 	return encoder.Encode(msg)
 }
@@ -167,11 +167,11 @@ func (f *Federation) Listen(address string) error {
 	if err != nil {
 		return fmt.Errorf("failed to listen: %w", err)
 	}
-	
+
 	f.mu.Lock()
 	f.listener = listener
 	f.mu.Unlock()
-	
+
 	go f.accept()
 	return nil
 }
@@ -186,16 +186,16 @@ func (f *Federation) accept() {
 			f.mu.RLock()
 			listener := f.listener
 			f.mu.RUnlock()
-			
+
 			if listener == nil {
 				return
 			}
-			
+
 			conn, err := listener.Accept()
 			if err != nil {
 				continue
 			}
-			
+
 			go f.handleConnection(conn)
 		}
 	}
@@ -204,28 +204,28 @@ func (f *Federation) accept() {
 // handleConnection handles a connection
 func (f *Federation) handleConnection(conn net.Conn) {
 	defer conn.Close()
-	
+
 	decoder := json.NewDecoder(conn)
-	
+
 	var msg FederationMessage
 	if err := decoder.Decode(&msg); err != nil {
 		return
 	}
-	
+
 	// Handle message
 	f.mu.RLock()
 	handler, ok := f.handlers[msg.Type]
 	f.mu.RUnlock()
-	
+
 	if !ok {
 		return
 	}
-	
+
 	response, err := handler(f.ctx, &msg)
 	if err != nil {
 		return
 	}
-	
+
 	if response != nil {
 		encoder := json.NewEncoder(conn)
 		_ = encoder.Encode(response)
@@ -235,26 +235,49 @@ func (f *Federation) handleConnection(conn net.Conn) {
 // Stop stops the federation
 func (f *Federation) Stop() error {
 	f.cancel()
-	
+
 	f.mu.RLock()
 	listener := f.listener
 	f.mu.RUnlock()
-	
+
 	if listener != nil {
 		return listener.Close()
 	}
 	return nil
 }
 
-// GetNodes returns all nodes
-func (f *Federation) GetNodes() []*RuntimeNode {
+// GetNodeStats returns statistics for a specific node
+func (f *Federation) GetNodeStats(nodeID string) (*NodeStats, bool) {
 	f.mu.RLock()
-	defer f.mu.RUnlock()
-	
-	nodes := make([]*RuntimeNode, 0, len(f.nodes))
-	for _, node := range f.nodes {
-		nodes = append(nodes, node)
+	node, ok := f.nodes[nodeID]
+	f.mu.RUnlock()
+
+	if !ok {
+		return nil, false
 	}
-	return nodes
+
+	node.mu.RLock()
+	defer node.mu.RUnlock()
+
+	return &NodeStats{
+		ID:       node.ID,
+		Address:  node.Address,
+		Healthy:  node.Healthy,
+		LastSeen: node.LastSeen,
+	}, true
 }
 
+// DiscoverNodes discovers new nodes (for dynamic federation)
+func (f *Federation) DiscoverNodes(discoverAddress string) error {
+	// In a real implementation, this would contact a discovery service
+	// For now, this is a placeholder
+	return nil
+}
+
+// NodeStats represents statistics about a node
+type NodeStats struct {
+	ID       string
+	Address  string
+	Healthy  bool
+	LastSeen time.Time
+}

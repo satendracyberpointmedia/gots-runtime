@@ -236,17 +236,17 @@ The runtime represents an evolution beyond Node.js, fundamentally designed for h
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│              Main Orchestrator (Go)                      │
-│         (Process Lifecycle, Scheduler)                   │
+│              Main Orchestrator (Go)                     │
+│         (Process Lifecycle, Scheduler)                  │
 └──────────────────┬──────────────────────────────────────┘
                    │
         ┌──────────┴──────────┐
         │                     │
 ┌───────▼────────┐   ┌────────▼──────────┐
-│  Event Loop    │   │   Worker Pool      │
-│  Layer         │   │   (Goroutines)      │
-│  (Logical)     │   │                    │
-└───────┬────────┘   └────────┬───────────┘
+│  Event Loop    │   │   Worker Pool     │
+│  Layer         │   │   (Goroutines)    │
+│  (Logical)     │   │                   │
+└───────┬────────┘   └────────┬──────────┘
         │                     │
         └──────────┬──────────┘
                    │
